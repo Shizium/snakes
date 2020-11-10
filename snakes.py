@@ -95,7 +95,6 @@ def key_pressed(char, dir):
 def food_spawn():
     return ["%",random.randint(1,rows),random.randint(1,cols)]
 
-
 screen = curses.initscr()
 curses.start_color()
 curses.noecho()
@@ -125,11 +124,8 @@ while presskey != 0:
 
     presskey = key_pressed(screen.getch(), direction)
     
-    #screen.addch(food[1], food[2], food[0])
-    
     for i in range(0,len(snakes)-1):
-        if snakes[i].collision != 1:
-            snakes[i].move(snakes[i].direction)
+        snakes[i].move(snakes[i].direction)
     
     curses.napms(100)
     
