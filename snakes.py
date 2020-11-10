@@ -18,12 +18,16 @@ class Snake:
         self.body = [[self.fill,0,0] for i in range(self.size)]
         if window is not None: self.window = window
         else: self.window = screen
+        
         brows, bcols = self.window.getbegyx()
         frows, fcols = self.window.getmaxyx()
+        frows, fcols = frows - 1, fcols - 1
+        
         if srow is not None: self.body[0][1] = srow
-        else: self.body[0][1] = random.randint(brows+1,frows-1)
+        else: self.body[0][1] = random.randint(brows,frows)
         if scol is not None: self.body[0][2] = scol
-        else: self.body[0][2] = random.randint(bcols+1,fcols-1)
+        else: self.body[0][2] = random.randint(bcols,fcols)
+        
         self.needgrow = 0
         self.collision = 0
         self.score = 0
@@ -32,7 +36,7 @@ class Snake:
 
     #def death(self):
 
-    def move(self, dir):
+    def move(self):
         row = self.body[0][1]
         col = self.body[0][2]
 
@@ -48,13 +52,10 @@ class Snake:
                     #Иначе поворачиваемся по вертикали (вверх или вниз)
                     self.direction = random.choice([0,2])
         #Если ручное управление
-        else:
-            self.direction = dir   
 
-        brows, bcols = self.window.getmaxyx()
-        brows, bcols = brows + 1, bcols + 1
+        brows, bcols = self.window.getbegyx()
         frows, fcols = self.window.getmaxyx()
-        frows, fcols = frows - 1, fcols - 1
+        frows, fcols = frows - 1 , fcols - 1
 
         #Совершаем движение на один шаг в выбранном направлении
         if self.direction == 0:
@@ -132,7 +133,7 @@ def key_pressed(char):
     elif char == ord("d") or char == ord("D") or char == curses.KEY_RIGHT: return 3
 
 #Constant
-SNAKE_NUMBER = 3
+SNAKE_NUMBER = 11
 
 #Init values
 dirdict = {"U":0,"L":1,"D":2,"R":3}
@@ -146,28 +147,31 @@ curses.curs_set(0)
 screen.erase()
 
 #Create window
-gameboard = curses.newwin(30,90,0,3)
+gameboard = curses.newwin(30,90,0,0)
 gameboard.nodelay(True)
-gameboard.box("|","=")
+gameboard.box(curses.A_VERTICAL,curses.A_HORIZONTAL)
 gameboard.addstr(0,30,"WANNA PLAY WITH SNAKES?")
 gameboard.refresh()
 
 scoreboard = curses.newwin(20,30,0,93)
-scoreboard.box("|","=")
+scoreboard.box(curses.A_VERTICAL,curses.A_HORIZONTAL)
 scoreboard.addstr(0,10,"SCORE BOARD:")
 scoreboard.refresh()
 
 #Object defined
 food = Food()
-snakes = snakes = [Snake(None,None,None,None,None,None,1,gameboard) for i in range(SNAKE_NUMBER+1)]
+snakes = snakes = [Snake(None,None,None,None,None,None,1,gameboard) for i in range(SNAKE_NUMBER)]
 
 while presskey != -1:
 
     presskey = key_pressed(gameboard.getch())
     
     for i in range(0,len(snakes)-1):
-        snakes[i].move(snakes[i].direction)
-    
+        snakes[i].move()    
+
+    gameboard.box(curses.A_VERTICAL,curses.A_HORIZONTAL)
+    gameboard.addstr(0,30,"WANNA PLAY WITH SNAKES?")
+
     curses.napms(100)
     
 curses.echo()
