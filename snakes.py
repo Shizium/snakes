@@ -4,22 +4,36 @@ import string
 
 class Snake:
 
-    def __init__(self, srow, scol, dir, color, size, fill, ai):
-        self.body = [[fill,0,0] for i in range(size)]
-        self.body[0][1] = srow
-        self.body[0][2] = scol
-        self.color = color
-        self.fill = fill
-        self.direction = dir
-        self.ai = ai
+    def __init__(self, srow=None, scol=None, direction=None, color=None, size=None, fill=None, ai=None):
+        if size is not None: self.size = size
+        else: self.size = random.randint(2,20)
+        
+        if direction is not None: self.direction = dir
+        else: self.direction = random.choice(list(dirdict.values()))
+        
+        if color is not None: self.color = color 
+        else: self.color = 1
+        
+        if fill is not None: self.fill = fill
+        else: self.fill = random.choice(string.ascii_uppercase)
+        
+        if ai is not None: self.ai = ai
+        else: self.ai = 0
+        
+        self.body = [[self.fill,0,0] for i in range(self.size)]
+        
+        if srow is not None: self.body[0][1] = srow
+        else: self.body[0][1] = random.randint(1,rows)
+        
+        if scol is not None: self.body[0][2] = scol
+        else: self.body[0][2] = random.randint(1,cols)
+        
         self.needgrow = 0
         self.collision = 0
 
-    def reset(self):
-    
+    #def reset(self):
 
-    def death(self):
-
+    #def death(self):
 
     def move(self, dir):
         row = self.body[0][1]
@@ -85,12 +99,12 @@ class Snake:
         else:
             return 0
 
-def key_pressed(char, dir):
+def key_pressed(char):
     if char == ord("q"): return -1
-    elif char == ord("w") or char == ord("W"): return 
-    elif char == ord("a") or char == ord("A"): return 
-    elif char == ord("s") or char == ord("S"): return 
-    elif char == ord("d") or char == ord("D"): return 
+    elif char == ord("w") or char == ord("W"): return 0
+    elif char == ord("a") or char == ord("A"): return 1
+    elif char == ord("s") or char == ord("S"): return 2
+    elif char == ord("d") or char == ord("D"): return 3
 
 def food_spawn():
     return ["%",random.randint(1,rows),random.randint(1,cols)]
@@ -104,25 +118,19 @@ screen.erase()
 
 SNAKE_NUMBER = 6
 
+rows,cols = screen.getmaxyx()
 presskey = -2
-direction = random.choice(list(dir.values()))
 food = food_spawn()
-snakes = [Snake(random.randint(1,rows),random.randint(1,cols),random.choice(list(dir.values())),1,30,random.choice(string.ascii_uppercase),1) for i in range(SNAKE_NUMBER)]
-
-rows, cols = screen.getmaxyx()
-
-dir = {"U":0,"L":1,"D":2,"R":3}
-
-presskey = -1
+dirdict = {"U":0,"L":1,"D":2,"R":3}
+presskey = 0
 food = []
 snakes = []
-direction = 0
 
-game_start()
+snakes = [Snake(1) for i in range(SNAKE_NUMBER)]
 
-while presskey != 0:
+while presskey != -1:
 
-    presskey = key_pressed(screen.getch(), direction)
+    presskey = key_pressed(screen.getch())
     
     for i in range(0,len(snakes)-1):
         snakes[i].move(snakes[i].direction)
