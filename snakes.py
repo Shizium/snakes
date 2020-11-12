@@ -4,17 +4,18 @@ import string
 
 class Snake:
 
-    def __init__(self, srow=None, scol=None, direction=None, color=None, size=None, fill=None, ai=None, window=None):
-        self.size = self.size = size if size is not None else random.randint(2,20)
-        self.direction = self.direction = direction if direction is not None else random.choice(list(dirdict.values()))
-        self.color = color if color is not None else 1
+    def __init__(self, foods, window=None, ai=0, srow=None, scol=None, direction=None, color=1, size=None, fill=None):
+        self.size = size if size is not None  else random.randint(2,20)
         self.fill = fill if fill is not None else random.choice(string.ascii_uppercase)
-        self.ai = ai if ai is not None else 0
+        self.direction = direction if direction is not None  else random.choice(list(dirdict.values()))
+        self.color = color
+        self.ai = ai
         self.window = window if window is not None else screen
+        self.foods = foods
         self.collision = 0
         self.needgrow = 0
         self.score = 0
-        self.reset(srow if srow is not None else None, scol if scol is not None else None)
+        self.reset(srow,scol)
 
     def reset(self,srow=None,scol=None):
         brows, bcols = self.window.getbegyx()
@@ -29,7 +30,7 @@ class Snake:
     def death(self):
         self.score -= 100
         for i in range(0,len(self.body)-1):
-            self.window.addch(self.body[i][1], self.body[i][2], " ")
+            self.window.drawch(self.body[i][1], self.body[i][2], " ")
         self.reset()
 
     def move(self):
@@ -75,40 +76,39 @@ class Snake:
         #Проверяет нет ли коллизии
         if self.check_collision(row,col) == 0 and self.collision != 1:
             self.body.insert(0, [self.fill,row,col])
-            self.window.addch(row, col, self.body[0][0])
+            self.window.drawch(row, col, self.body[0][0])
             self.score += 1
+            self.catchfood(row,col)
             if not self.needgrow:
-                self.score += 10
                 self.body.pop(len(self.body) - 1)
-                self.window.addch(self.body[-1][1], self.body[-1][2], " ")
+                self.window.drawch(self.body[-1][1], self.body[-1][2], " ")
             else:
                 self.needgrow = 0
         else:
            self.death()
 
     def check_collision(self,row,col):
-        attrs = self.window.inch(row,col)
-        ch = chr(attrs & 0xFF)
-        if ch in list(string.ascii_uppercase):
+        if self.window.checkchar(row,col) in list(string.ascii_uppercase):
             return 1
         else:
             return 0
     
     def catchfood(self,row,col):
-        if self.body[0][1] == row and self.body[0][2] == col:
-            self.needgrow = 1
-            return 1
-        else:
-            return 0
+        for i in range(0,len(self.foods)-1):
+            if self.body[0][1] == self.foods[i].row and self.body[0][2] == self.foods[i].col:
+                self.needgrow = 1
+                self.score += 10
+                self.foods[i].spawn()
 
 class Food:
     
-    def __init__(self, price=None, view=None, window=None):
+    def __init__(self, window=None, view=None, price=None):
         self.price = price if price is not None else 10
         self.view = view if view is not None else random.choice(string.punctuation)
         self.window = window if window is not None else screen
         self.row = 0
         self.col = 0
+        self.spawn()
 
     def spawn(self):
         brows, bcols = self.window.getbegyx()
@@ -119,12 +119,37 @@ class Food:
         while True:
             self.row = random.randint(brows,frows)
             self.col = random.randint(bcols,fcols)
-            attrs = self.window.inch(self.row,self.col)
-            ch = chr(attrs & 0xFF)
-            if ch == " ":
+            if self.window.checkchar(self.row,self.col) == " ":
                 break
-        
-        self.window.addch(self.row, self.col, self.view)
+    
+    def draw(self):
+        self.window.drawch(self.row, self.col, self.view)
+
+class Painter:
+
+    def __init__(self,rows,cols,srow,scol):
+        self.window = curses.newwin(rows,cols,srow,scol)
+    
+    def drawwin(self):
+        self.window.box(curses.A_VERTICAL,curses.A_HORIZONTAL)
+
+    def drawch(self,row,col,ch=" ",color=1):
+        self.window.addch(row, col, ch)
+
+    def drawstr(self,row,col,st=" ",color=1):
+        self.window.addstr(row, col, st)
+    
+    def refresh(self):
+        self.window.refresh()
+
+    def checkchar(self,row,col):
+        return chr((self.window.inch(row,col)) & 0xFF)
+
+    def getbegyx(self):
+        return self.window.getbegyx()
+
+    def getmaxyx(self):
+        return self.window.getmaxyx()
 
 def key_pressed(char):
     if char == ord("q"): return -1
@@ -135,41 +160,44 @@ def key_pressed(char):
 
 #Constant
 SNAKE_NUMBER = 6
+FOOD_NUMBER = 6
 
 #Init values
 dirdict = {"U":0,"L":1,"D":2,"R":3}
 presskey = 0
 
-#Curse init
 screen = curses.initscr()
 curses.start_color()
 curses.noecho()
 curses.curs_set(0)
+screen.nodelay(True)
 screen.erase()
 
 #Create window
-gameboard = curses.newwin(30,90,0,0)
-gameboard.nodelay(True)
-scoreboard = curses.newwin(20,30,0,93)
-scoreboard.box(curses.A_VERTICAL,curses.A_HORIZONTAL)
-scoreboard.addstr(0,9,"SCORE BOARD:")
-scoreboard.refresh()
+gameboard = Painter(30,90,0,0)
+scoreboard = Painter(20,30,0,93)
+
+scoreboard.drawwin()
+scoreboard.drawstr(0,9,"SCORE BOARD:")
 
 #Object defined
-food = Food()
-snakes = snakes = [Snake(None,None,None,None,None,None,1,gameboard) for i in range(SNAKE_NUMBER)]
+foods = [Food(gameboard) for i in range(int(FOOD_NUMBER+1))]
+snakes = [Snake(foods,gameboard,1) for i in range(int(SNAKE_NUMBER+1))]
 
 while presskey != -1:
 
-    presskey = key_pressed(gameboard.getch())
+    presskey = key_pressed(screen.getch())
     
+    for i in range(0,len(foods)-1):
+        foods[i].draw()
+
     for i in range(0,len(snakes)-1):
         snakes[i].move()
-        scoreboard.addstr (2+i, 2, "===[ " + snakes[i].fill + " - " + str(snakes[i].score) + " ]===" )
+        scoreboard.drawstr(2+i, 2, "===[ " + snakes[i].fill + " => " + str(snakes[i].score) + " ]===" )
 
-
-    gameboard.box(curses.A_VERTICAL,curses.A_HORIZONTAL)
-    gameboard.addstr(0,35,"WANNA PLAY WITH SNAKES?")
+    gameboard.drawwin()
+    gameboard.drawstr(0,35,"WANNA PLAY WITH SNAKES?")
+    gameboard.refresh()
     scoreboard.refresh()
 
     curses.napms(100)
