@@ -5,36 +5,32 @@ import string
 class Snake:
 
     def __init__(self, srow=None, scol=None, direction=None, color=None, size=None, fill=None, ai=None, window=None):
-        if size is not None: self.size = size
-        else: self.size = random.randint(2,20)
-        if direction is not None: self.direction = dir
-        else: self.direction = random.choice(list(dirdict.values()))
-        if color is not None: self.color = color 
-        else: self.color = 1
-        if fill is not None: self.fill = fill
-        else: self.fill = random.choice(string.ascii_uppercase)
-        if ai is not None: self.ai = ai
-        else: self.ai = 0
-        self.body = [[self.fill,0,0] for i in range(self.size)]
-        if window is not None: self.window = window
-        else: self.window = screen
-        
+        self.size = self.size = size if size is not None else random.randint(2,20)
+        self.direction = self.direction = direction if direction is not None else random.choice(list(dirdict.values()))
+        self.color = color if color is not None else 1
+        self.fill = fill if fill is not None else random.choice(string.ascii_uppercase)
+        self.ai = ai if ai is not None else 0
+        self.window = window if window is not None else screen
+        self.collision = 0
+        self.needgrow = 0
+        self.score = 0
+        self.reset(srow if srow is not None else None, scol if scol is not None else None)
+
+    def reset(self,srow=None,scol=None):
         brows, bcols = self.window.getbegyx()
         frows, fcols = self.window.getmaxyx()
-        frows, fcols = frows - 1, fcols - 1
-        
-        if srow is not None: self.body[0][1] = srow
-        else: self.body[0][1] = random.randint(brows,frows)
-        if scol is not None: self.body[0][2] = scol
-        else: self.body[0][2] = random.randint(bcols,fcols)
-        
-        self.needgrow = 0
+        frows = frows - 1
+        fcols = fcols - 1
+        self.body = [[self.fill,0,0] for i in range(self.size)]
+        self.body[0][1] = srow if srow is not None else random.randint(brows,frows)
+        self.body[0][2] = scol if scol is not None else random.randint(bcols,fcols)
         self.collision = 0
-        self.score = 0
 
-    #def reset(self):
-
-    #def death(self):
+    def death(self):
+        self.score -= 100
+        for i in range(0,len(self.body)-1):
+            self.window.addch(self.body[i][1], self.body[i][2], " ")
+        self.reset()
 
     def move(self):
         row = self.body[0][1]
@@ -55,7 +51,8 @@ class Snake:
 
         brows, bcols = self.window.getbegyx()
         frows, fcols = self.window.getmaxyx()
-        frows, fcols = frows - 1 , fcols - 1
+        frows = frows - 1
+        fcols = fcols - 1
 
         #Совершаем движение на один шаг в выбранном направлении
         if self.direction == 0:
@@ -79,13 +76,15 @@ class Snake:
         if self.check_collision(row,col) == 0 and self.collision != 1:
             self.body.insert(0, [self.fill,row,col])
             self.window.addch(row, col, self.body[0][0])
+            self.score += 1
             if not self.needgrow:
+                self.score += 10
                 self.body.pop(len(self.body) - 1)
                 self.window.addch(self.body[-1][1], self.body[-1][2], " ")
             else:
                 self.needgrow = 0
         else:
-            self.collision = 1
+           self.death()
 
     def check_collision(self,row,col):
         attrs = self.window.inch(row,col)
@@ -104,26 +103,28 @@ class Snake:
 
 class Food:
     
-    def __init__(self, row=None, col=None, price=None, view=None):
-        if price is not None: self.price = price
-        else: self.price = 10
-        if view is not None: self.view = random.choice(string.punctuation)
-        else: self.view = view
-        if row is not None: self.row = 0
-        else: self.row  = row
-        if col is not None: self.col = 0
-        else: self.col  = col
+    def __init__(self, price=None, view=None, window=None):
+        self.price = price if price is not None else 10
+        self.view = view if view is not None else random.choice(string.punctuation)
+        self.window = window if window is not None else screen
+        self.row = 0
+        self.col = 0
 
-    def spawn():
+    def spawn(self):
+        brows, bcols = self.window.getbegyx()
+        frows, fcols = self.window.getmaxyx()
+        frows = frows - 1
+        fcols = fcols - 1
+        
         while True:
-            self.row = random.randint(1,curses.LINES)
-            self.col = random.randint(1,curses.COLS)
-            attrs = screen.inch(row,col)
+            self.row = random.randint(brows,frows)
+            self.col = random.randint(bcols,fcols)
+            attrs = self.window.inch(self.row,self.col)
             ch = chr(attrs & 0xFF)
             if ch == " ":
                 break
-             
-        screen.addch(self.row, self.col, self.view)
+        
+        self.window.addch(self.row, self.col, self.view)
 
 def key_pressed(char):
     if char == ord("q"): return -1
@@ -133,7 +134,7 @@ def key_pressed(char):
     elif char == ord("d") or char == ord("D") or char == curses.KEY_RIGHT: return 3
 
 #Constant
-SNAKE_NUMBER = 11
+SNAKE_NUMBER = 6
 
 #Init values
 dirdict = {"U":0,"L":1,"D":2,"R":3}
@@ -149,13 +150,9 @@ screen.erase()
 #Create window
 gameboard = curses.newwin(30,90,0,0)
 gameboard.nodelay(True)
-gameboard.box(curses.A_VERTICAL,curses.A_HORIZONTAL)
-gameboard.addstr(0,30,"WANNA PLAY WITH SNAKES?")
-gameboard.refresh()
-
 scoreboard = curses.newwin(20,30,0,93)
 scoreboard.box(curses.A_VERTICAL,curses.A_HORIZONTAL)
-scoreboard.addstr(0,10,"SCORE BOARD:")
+scoreboard.addstr(0,9,"SCORE BOARD:")
 scoreboard.refresh()
 
 #Object defined
@@ -167,10 +164,13 @@ while presskey != -1:
     presskey = key_pressed(gameboard.getch())
     
     for i in range(0,len(snakes)-1):
-        snakes[i].move()    
+        snakes[i].move()
+        scoreboard.addstr (2+i, 2, "===[ " + snakes[i].fill + " - " + str(snakes[i].score) + " ]===" )
+
 
     gameboard.box(curses.A_VERTICAL,curses.A_HORIZONTAL)
-    gameboard.addstr(0,30,"WANNA PLAY WITH SNAKES?")
+    gameboard.addstr(0,35,"WANNA PLAY WITH SNAKES?")
+    scoreboard.refresh()
 
     curses.napms(100)
     
