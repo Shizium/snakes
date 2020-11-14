@@ -4,8 +4,8 @@ import string
 
 class Snake:
 
-    def __init__(self, foods, board=None, ai=0, srow=None, scol=None, direction=None, color=1, size=None, fill=None):
-        self.size = size if size is not None  else random.randint(2,20)
+    def __init__(self, foods, board=None, ai=0, srow=None, scol=None, direction=None, color=1, size=5, fill=None):
+        self.size = size
         self.fill = fill if fill is not None else random.choice(string.ascii_uppercase)
         self.direction = direction if direction is not None  else random.choice(list(dirdict.values()))
         self.color = color
@@ -16,7 +16,7 @@ class Snake:
         self.needgrow = 0
         self.score = 0
         self.reset(srow,scol)
-        self.nearfood = [0,0] #Переменная для хранения ближайшей еды
+        self.target = None #Переменная для хранения ближайшей еды
 
     def reset(self,srow=None,scol=None):
         self.body = [[self.fill,0,0] for i in range(self.size)]
@@ -38,26 +38,23 @@ class Snake:
         if self.ai == 1:
             #Проверяем где самая ближняя еда по направлению
             #Только если у нас нет текущей цели еды, к которой мы встретимся или еду уже съели
-            if self.nearfood == [0,0]:
+            if (self.target == None) or (self.board.checkch(self.target[0],self.target[1]) not in string.punctuation):
                     i = random.randint(0,len(self.foods)-1)
-                    self.nearfood[0] = self.foods[i].row
-                    self.nearfood[1] = self.foods[i].col
-            elif self.board.checkchar(self.nearfood[0],self.nearfood[1]) not in string.punctuation:
-                    i = random.randint(0,len(self.foods)-1)
-                    self.nearfood[0] = self.foods[i].row
-                    self.nearfood[1] = self.foods[i].col
+                    self.target = [0,0]
+                    self.target[0] = self.foods[i].row
+                    self.target[1] = self.foods[i].col
 
             #Простейший интеллект
             #Если вертикаль не совпадает, то если движется по горизонтали, то меняем направление на движение по вертикали
             #в зависимости где ближе: сверху или снизу
-            if self.body[0][1] != self.nearfood[0]:
+            if self.body[0][1] != self.target[0]:
                 if self.direction == 1 or self.direction == 3:
-                    self.direction = 0 if self.body[0][1] > self.nearfood[0] else 2
+                    self.direction = 0 if self.body[0][1] > self.target[0] else 2
             #Если горизонталь не совпадает, то если движется по вертикали, то меняем направление на движение по горизонтали
             #в зависимости где ближе: справа или слева
-            elif self.body[0][2] != self.nearfood[1]:
+            elif self.body[0][2] != self.target[1]:
                 if self.direction == 0 or self.direction == 2:
-                    self.direction = 1 if self.body[0][2] > self.nearfood[1] else 3
+                    self.direction = 1 if self.body[0][2] > self.target[1] else 3
 
         #Совершаем движение на один шаг в выбранном направлении
         if self.direction == 0:
@@ -81,8 +78,7 @@ class Snake:
         if self.check_collision(row,col) == 0 and self.collision != 1:
             self.body.insert(0, [self.fill,row,col])
             self.board.drawch(row, col, self.body[0][0])
-            self.score += 1
-            self.catchfood(row,col)
+            self.catch_food(row,col)
             if not self.needgrow:
                 self.body.pop(len(self.body) - 1)
                 self.board.drawch(self.body[-1][1], self.body[-1][2], " ")
@@ -92,18 +88,18 @@ class Snake:
            self.death()
 
     def check_collision(self,row,col):
-        if self.board.checkchar(row,col) in list(string.ascii_uppercase):
+        if self.board.checkch(row,col) in list(string.ascii_uppercase):
             return 1
         else:
             return 0
     
-    def catchfood(self,row,col):
+    def catch_food(self,row,col):
         for i in range(0,len(self.foods)-1):
             if self.body[0][1] == self.foods[i].row and self.body[0][2] == self.foods[i].col:
                 self.needgrow = 1
                 self.score += 10
                 self.foods[i].spawn()
-                self.nearfood = [0,0]
+                self.target = None
 
 class Food:
     
@@ -119,7 +115,7 @@ class Food:
         while True:
             self.row = random.randint(self.board.miny,self.board.maxy - 1)
             self.col = random.randint(self.board.minx,self.board.maxx - 1)
-            if self.board.checkchar(self.row,self.col) == " ":
+            if self.board.checkch(self.row,self.col) == " ":
                 break
     
     def draw(self):
@@ -144,7 +140,7 @@ class Board:
     def refresh(self):
         self.board.refresh()
 
-    def checkchar(self,row,col):
+    def checkch(self,row,col):
         return chr((self.board.inch(row,col)) & 0xFF)
 
 def key_pressed(char):
