@@ -16,6 +16,7 @@ class Snake:
         self.needgrow = 0
         self.score = 0
         self.reset(srow,scol)
+        self.nearfood = [0,0] #Переменная для хранения ближайшей еды
 
     def reset(self,srow=None,scol=None):
         self.body = [[self.fill,0,0] for i in range(self.size)]
@@ -35,30 +36,42 @@ class Snake:
 
         #Если установлен флаг автоматического управлений движением змейки
         if self.ai == 1:
-            #10% на случайный поворот
-            if random.randint(1,100) <= 20:
-                #Если двигались по вертикали
-                if self.direction % 2 == 0:
-                    #Поворачиваемся по горизонтали (вправо или влево)
-                    self.direction = random.choice([1,3])
-                else:
-                    #Иначе поворачиваемся по вертикали (вверх или вниз)
-                    self.direction = random.choice([0,2])
-        #Если ручное управление
+            #Проверяем где самая ближняя еда по направлению
+            #Только если у нас нет текущей цели еды, к которой мы встретимся или еду уже съели
+            if self.nearfood == [0,0]:
+                    i = random.randint(0,len(self.foods)-1)
+                    self.nearfood[0] = self.foods[i].row
+                    self.nearfood[1] = self.foods[i].col
+            elif self.board.checkchar(self.nearfood[0],self.nearfood[1]) not in string.punctuation:
+                    i = random.randint(0,len(self.foods)-1)
+                    self.nearfood[0] = self.foods[i].row
+                    self.nearfood[1] = self.foods[i].col
+
+            #Простейший интеллект
+            #Если вертикаль не совпадает, то если движется по горизонтали, то меняем направление на движение по вертикали
+            #в зависимости где ближе: сверху или снизу
+            if self.body[0][1] != self.nearfood[0]:
+                if self.direction == 1 or self.direction == 3:
+                    self.direction = 0 if self.body[0][1] > self.nearfood[0] else 2
+            #Если горизонталь не совпадает, то если движется по вертикали, то меняем направление на движение по горизонтали
+            #в зависимости где ближе: справа или слева
+            elif self.body[0][2] != self.nearfood[1]:
+                if self.direction == 0 or self.direction == 2:
+                    self.direction = 1 if self.body[0][2] > self.nearfood[1] else 3
 
         #Совершаем движение на один шаг в выбранном направлении
         if self.direction == 0:
             row += 1
-            if row >= self.board.maxy -1:
-                row = self.board.miny
+            if row >= self.board.maxy - 1:
+                row = self.board.miny 
         elif self.direction == 2:
             row -= 1
             if row <= self.board.miny:
-                row = self.board.maxy
+                row = self.board.maxy - 1 
         elif self.direction == 1:
             col -= 1
             if col <= self.board.minx:
-                col = self.board.maxx
+                col = self.board.maxx - 1
         elif self.direction == 3:
             col += 1
             if col >= self.board.maxx - 1:
@@ -90,6 +103,7 @@ class Snake:
                 self.needgrow = 1
                 self.score += 10
                 self.foods[i].spawn()
+                self.nearfood = [0,0]
 
 class Food:
     
@@ -141,8 +155,8 @@ def key_pressed(char):
     elif char == ord("d") or char == ord("D") or char == curses.KEY_RIGHT: return 3
 
 #Constant
-SNAKE_NUMBER = 1
-FOOD_NUMBER = 6
+SNAKE_NUMBER = 5
+FOOD_NUMBER = 10
 
 #Init values
 dirdict = {"U":0,"L":1,"D":2,"R":3}
