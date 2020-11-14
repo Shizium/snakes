@@ -19,20 +19,20 @@ class Snake:
         self.target = None #Переменная для хранения ближайшей еды
 
     def reset(self,srow=None,scol=None):
-        self.body = [[self.fill,0,0] for i in range(self.size)]
-        self.body[0][1] = srow if srow is not None else random.randint(self.board.miny,self.board.maxy - 1)
-        self.body[0][2] = scol if scol is not None else random.randint(self.board.minx,self.board.maxx - 1)
+        self.body = [[0,0] for i in range(self.size)]
+        self.body[0][0] = srow if srow is not None else random.randint(self.board.miny,self.board.maxy - 1)
+        self.body[0][1] = scol if scol is not None else random.randint(self.board.minx,self.board.maxx - 1)
         self.collision = 0
 
     def death(self):
         self.score -= 100
-        for i in range(0,len(self.body)-1):
+        for i in range(len(self.body)-1):
             self.board.drawch(self.body[i][1], self.body[i][2], " ")
         self.reset()
 
     def move(self):
-        row = self.body[0][1]
-        col = self.body[0][2]
+        row = self.body[0][0]
+        col = self.body[0][1]
 
         #Если установлен флаг автоматического управлений движением змейки
         if self.ai == 1:
@@ -47,14 +47,14 @@ class Snake:
             #Простейший интеллект
             #Если вертикаль не совпадает, то если движется по горизонтали, то меняем направление на движение по вертикали
             #в зависимости где ближе: сверху или снизу
-            if self.body[0][1] != self.target[0]:
+            if self.body[0][0] != self.target[0]:
                 if self.direction == 1 or self.direction == 3:
-                    self.direction = 0 if self.body[0][1] > self.target[0] else 2
+                    self.direction = 0 if self.body[0][0] > self.target[0] else 2
             #Если горизонталь не совпадает, то если движется по вертикали, то меняем направление на движение по горизонтали
             #в зависимости где ближе: справа или слева
-            elif self.body[0][2] != self.target[1]:
+            elif self.body[0][1] != self.target[1]:
                 if self.direction == 0 or self.direction == 2:
-                    self.direction = 1 if self.body[0][2] > self.target[1] else 3
+                    self.direction = 1 if self.body[0][1] > self.target[1] else 3
 
         #Совершаем движение на один шаг в выбранном направлении
         if self.direction == 0:
@@ -76,12 +76,12 @@ class Snake:
 
         #Проверяет нет ли коллизии
         if self.check_collision(row,col) == 0 and self.collision != 1:
-            self.body.insert(0, [self.fill,row,col])
-            self.board.drawch(row, col, self.body[0][0])
+            self.body.insert(0, [row,col])
+            self.board.drawch(row, col, self.fill)
             self.catch_food(row,col)
             if not self.needgrow:
                 self.body.pop(len(self.body) - 1)
-                self.board.drawch(self.body[-1][1], self.body[-1][2], " ")
+                self.board.drawch(self.body[-1][0], self.body[-1][1], " ")
             else:
                 self.needgrow = 0
         else:
@@ -94,8 +94,8 @@ class Snake:
             return 0
     
     def catch_food(self,row,col):
-        for i in range(0,len(self.foods)-1):
-            if self.body[0][1] == self.foods[i].row and self.body[0][2] == self.foods[i].col:
+        for i in range(len(self.foods)-1):
+            if self.body[0] == self.foods[i].row and self.body[1] == self.foods[i].col:
                 self.needgrow = 1
                 self.score += 10
                 self.foods[i].spawn()
@@ -180,10 +180,10 @@ while presskey != -1:
 
     presskey = key_pressed(screen.getch())
     
-    for i in range(0,len(foods)-1):
+    for i in range(len(foods)-1):
         foods[i].draw()
 
-    for i in range(0,len(snakes)-1):
+    for i in range(len(snakes)-1):
         snakes[i].move()
         scoreboard.drawstr(2+i, 2, "===[ " + snakes[i].fill + " => " + str(snakes[i].score) + " ]===" )
 
