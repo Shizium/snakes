@@ -78,7 +78,6 @@ class Snake:
         if self.collision != 1:
             self.body.insert(0, [row,col])
             self.board.drawch(row, col, self.fill)
-            self.catch_food(row,col)
             if not self.needgrow:
                 self.body.pop(len(self.body) - 1)
                 self.board.drawch(self.body[-1][0], self.body[-1][1], " ")
@@ -87,14 +86,6 @@ class Snake:
         else:
            self.death()
     
-    def catch_food(self,row,col):
-        for i in range(len(self.foods)-1):
-            if self.body[0][0] == self.foods[i].row and self.body[0][1] == self.foods[i].col:
-                self.needgrow = 1
-                self.score += 10
-                self.foods[i].spawn()
-                self.target = None
-
 class Food:
     
     def __init__(self, board=None, view=None, price=None):
@@ -136,22 +127,48 @@ class Board:
 
     def checkch(self,row,col):
         return chr((self.board.inch(row,col)) & 0xFF)
+    
 
 class LevelManager:
 
-    def __init__(self,snakecout, foodcount):
-        self.snakecout = int (snakecout + 1)
+    def __init__(self,snakecount, foodcount):
+        self.snakecount = int (snakecount + 1)
         self.foodcount = int (foodcount + 1)
         self.foods = [Food(gameboard) for i in range(self.foodcount)]
-        self.snakes = [Snake(self.foods,gameboard,1) for i in range(self.snakecout)]
+        self.snakes = [Snake(self.foods,gameboard,1) for i in range(self.snakecount)]
     
     def check_collision(self):
-        for i in range(self.snakecout-1):
-            for j in range(self.snakecout-1):
+        for i in range(self.snakecount-1):
+            for j in range(self.snakecount-1):
                 if self.snakes[i].body[0] in self.snakes[j].body and self.snakes[i].fill != self.snakes[j].fill:
                     self.snakes[i].collision = 1
-        
 
+    def catch_food(self):
+        for i in range(self.snakecount-1):
+            for j in range(self.foodcount-1):
+                if self.snakes[i].body[0][0] == self.foods[j].row and self.snakes[i].body[0][1] == self.foods[j].col:
+                    self.snakes[i].needgrow = 1
+                    self.snakes[i].score += 10
+                    self.snakes[i].target = None
+                    self.foods[j].spawn()
+    
+    def gamemove(self, gboard, sboard):
+        for i in range(self.foodcount-1):
+            self.foods[i].draw()
+
+        for i in range(self.snakecount-1):
+            self.snakes[i].move()
+            self.check_collision()
+            self.catch_food()
+            sboard.drawstr(2+i, 2, "===[ " + self.snakes[i].fill + " => " + str(self.snakes[i].score) + " ]===" )
+        
+        sboard.refresh()
+
+        gboard.drawwin()
+        gboard.drawstr(0,35,"WANNA PLAY WITH SNAKES?")
+        gboard.refresh()
+
+                
 def key_pressed(char):
     if char == ord("q"): return -1
     elif char == ord("w") or char == ord("W") or char == curses.KEY_UP: return 0
@@ -187,19 +204,7 @@ while presskey != -1:
 
     presskey = key_pressed(screen.getch())
     
-    for i in range(len(level.foods)-1):
-        level.foods[i].draw()
-
-    for i in range(len(level.snakes)-1):
-        level.snakes[i].move()
-        level.check_collision()
-
-    scoreboard.drawstr(2+i, 2, "===[ " + level.snakes[i].fill + " => " + str(level.snakes[i].score) + " ]===" )
-    scoreboard.refresh()
-
-    gameboard.drawwin()
-    gameboard.drawstr(0,35,"WANNA PLAY WITH SNAKES?")
-    gameboard.refresh()
+    level.gamemove(gameboard, scoreboard)
 
     curses.napms(100)
     
