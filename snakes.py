@@ -27,7 +27,7 @@ class Snake:
     def death(self):
         self.score -= 100
         for i in range(len(self.body)-1):
-            self.board.drawch(self.body[i][1], self.body[i][2], " ")
+            self.board.drawch(self.body[i][0], self.body[i][1], " ")
         self.reset()
 
     def move(self):
@@ -75,7 +75,7 @@ class Snake:
                 col = self.board.minx
 
         #Проверяет нет ли коллизии
-        if self.check_collision(row,col) == 0 and self.collision != 1:
+        if self.collision != 1:
             self.body.insert(0, [row,col])
             self.board.drawch(row, col, self.fill)
             self.catch_food(row,col)
@@ -86,16 +86,10 @@ class Snake:
                 self.needgrow = 0
         else:
            self.death()
-
-    def check_collision(self,row,col):
-        if self.board.checkch(row,col) in list(string.ascii_uppercase):
-            return 1
-        else:
-            return 0
     
     def catch_food(self,row,col):
         for i in range(len(self.foods)-1):
-            if self.body[0] == self.foods[i].row and self.body[1] == self.foods[i].col:
+            if self.body[0][0] == self.foods[i].row and self.body[0][1] == self.foods[i].col:
                 self.needgrow = 1
                 self.score += 10
                 self.foods[i].spawn()
@@ -143,6 +137,21 @@ class Board:
     def checkch(self,row,col):
         return chr((self.board.inch(row,col)) & 0xFF)
 
+class LevelManager:
+
+    def __init__(self,snakecout, foodcount):
+        self.snakecout = int (snakecout + 1)
+        self.foodcount = int (foodcount + 1)
+        self.foods = [Food(gameboard) for i in range(self.foodcount)]
+        self.snakes = [Snake(self.foods,gameboard,1) for i in range(self.snakecout)]
+    
+    def check_collision(self):
+        for i in range(self.snakecout-1):
+            for j in range(self.snakecout-1):
+                if self.snakes[i].body[0] in self.snakes[j].body and self.snakes[i].fill != self.snakes[j].fill:
+                    self.snakes[i].collision = 1
+        
+
 def key_pressed(char):
     if char == ord("q"): return -1
     elif char == ord("w") or char == ord("W") or char == curses.KEY_UP: return 0
@@ -172,25 +181,25 @@ scoreboard = Board(20,30,0,93)
 scoreboard.drawwin()
 scoreboard.drawstr(0,9,"SCORE BOARD:")
 
-#Object defined
-foods = [Food(gameboard) for i in range(int(FOOD_NUMBER+1))]
-snakes = [Snake(foods,gameboard,1) for i in range(int(SNAKE_NUMBER+1))]
+level = LevelManager(SNAKE_NUMBER, FOOD_NUMBER)
 
 while presskey != -1:
 
     presskey = key_pressed(screen.getch())
     
-    for i in range(len(foods)-1):
-        foods[i].draw()
+    for i in range(len(level.foods)-1):
+        level.foods[i].draw()
 
-    for i in range(len(snakes)-1):
-        snakes[i].move()
-        scoreboard.drawstr(2+i, 2, "===[ " + snakes[i].fill + " => " + str(snakes[i].score) + " ]===" )
+    for i in range(len(level.snakes)-1):
+        level.snakes[i].move()
+        level.check_collision()
+
+    scoreboard.drawstr(2+i, 2, "===[ " + level.snakes[i].fill + " => " + str(level.snakes[i].score) + " ]===" )
+    scoreboard.refresh()
 
     gameboard.drawwin()
     gameboard.drawstr(0,35,"WANNA PLAY WITH SNAKES?")
     gameboard.refresh()
-    scoreboard.refresh()
 
     curses.napms(100)
     
