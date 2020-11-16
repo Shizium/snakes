@@ -19,7 +19,7 @@ class Snake:
         self.target = None #Переменная для хранения еды за которой двигается змейка
 
     def head(self):
-        return [self.body[0][0],self.body[0][1]]
+        return self.body[0]
     
     def reset(self,srow=None,scol=None):
         self.body = [[0,0] for i in range(self.size)]
@@ -131,38 +131,41 @@ class Board:
 class LevelManager:
 
     def __init__(self,snakecount, foodcount, gameboard, scoreboard):
-        self.snakecount = int (snakecount + 1)
-        self.foodcount = int (foodcount + 1)
+        self.snakecount = snakecount + 1
+        self.foodcount = foodcount + 1
         self.foods = [Food(gameboard) for i in range(self.foodcount)]
         self.snakes = [Snake(self.foods,gameboard,1) for i in range(self.snakecount)]
         self.gameboard = gameboard
         self.scoreboard = scoreboard
     
     def check_collision(self):
-        for i in range(self.snakecount-1):
-            for j in range(self.snakecount-1):
-                if self.snakes[i].head() in self.snakes[j].body and self.snakes[i].fill != self.snakes[j].fill:
+        for snake1 in self.snakes:
+            for snake2 in self.snakes:
+                if snake1.head() in snake2.body and snake1.fill != snake2.fill:
                     self.snakes[i].collision = 1
 
     def catch_food(self):
-        for i in range(self.snakecount-1):
-            for j in range(self.foodcount-1):
-                if self.snakes[i].head() == [self.foods[j].row,self.foods[j].col]:
-                    self.snakes[i].needgrow = 1
-                    self.foods[j].spawn()
+        for snake in self.snakes:
+            for food in self.foods:
+                if snake.head() == [food.row,food.col]:
+                    snake.needgrow = 1
+                    food.spawn()
     
     def gamemove(self):
-        for i in range(self.foodcount-1):
-            self.foods[i].draw()
+        for food in self.foods:
+            food.draw()
 
-        for i in range(self.snakecount-1):
-            if self.snakes[i].collision == 1:
-                self.snakes[i].death()
+        i = 0
+
+        for snake in self.snakes:
+            if snake.collision == 1:
+                snake.death()
             else:
-                self.snakes[i].move()
+                snake.move()
             self.check_collision()
             self.catch_food()
-            self.scoreboard.drawstr(2+i, 2, "===[ " + self.snakes[i].fill + " => " + str(self.snakes[i].score) + " ]===" )
+            self.scoreboard.drawstr(2+i, 2, "===[ " + snake.fill + " => " + str(snake.score) + " ]===" )
+            i += 1
         
         self.scoreboard.refresh()
 
