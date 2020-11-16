@@ -16,13 +16,18 @@ class Snake:
         self.needgrow = 0
         self.score = 0
         self.reset(srow,scol)
-        self.target = None #Переменная для хранения ближайшей еды
+        self.target = None #Переменная для хранения еды за которой двигается змейка
 
+    def head(self):
+        return [self.body[0][0],self.body[0][1]]
+    
     def reset(self,srow=None,scol=None):
         self.body = [[0,0] for i in range(self.size)]
         self.body[0][0] = srow if srow is not None else random.randint(self.board.miny,self.board.maxy - 1)
         self.body[0][1] = scol if scol is not None else random.randint(self.board.minx,self.board.maxx - 1)
         self.collision = 0
+        self.needgrow = 0
+        self.target = None
 
     def death(self):
         self.score -= 100
@@ -31,8 +36,7 @@ class Snake:
         self.reset()
 
     def move(self):
-        row = self.body[0][0]
-        col = self.body[0][1]
+        row, col = self.head()
 
         #Если установлен флаг автоматического управлений движением змейки
         if self.ai == 1:
@@ -47,14 +51,14 @@ class Snake:
             #Простейший интеллект
             #Если вертикаль не совпадает, то если движется по горизонтали, то меняем направление на движение по вертикали
             #в зависимости где ближе: сверху или снизу
-            if self.body[0][0] != self.target[0]:
+            if row != self.target[0]:
                 if self.direction == 1 or self.direction == 3:
-                    self.direction = 0 if self.body[0][0] > self.target[0] else 2
+                    self.direction = 0 if row > self.target[0] else 2
             #Если горизонталь не совпадает, то если движется по вертикали, то меняем направление на движение по горизонтали
             #в зависимости где ближе: справа или слева
-            elif self.body[0][1] != self.target[1]:
+            elif col != self.target[1]:
                 if self.direction == 0 or self.direction == 2:
-                    self.direction = 1 if self.body[0][1] > self.target[1] else 3
+                    self.direction = 1 if col > self.target[1] else 3
 
         #Совершаем движение на один шаг в выбранном направлении
         if self.direction == 0:
@@ -74,26 +78,22 @@ class Snake:
             if col >= self.board.maxx - 1:
                 col = self.board.minx
 
-        #Проверяет нет ли коллизии
-        if self.collision != 1:
-            self.body.insert(0, [row,col])
-            self.board.drawch(row, col, self.fill)
-            if not self.needgrow:
-                self.body.pop(len(self.body) - 1)
-                self.board.drawch(self.body[-1][0], self.body[-1][1], " ")
-            else:
-                self.needgrow = 0
+        self.body.insert(0, [row,col])
+        self.board.drawch(row, col, self.fill)
+        if self.needgrow == 0:
+            self.body.pop(len(self.body) - 1)
+            self.board.drawch(self.body[-1][0], self.body[-1][1], " ")
         else:
-           self.death()
+            self.needgrow = 0
+            self.score += 10
+            self.target = None
     
 class Food:
     
-    def __init__(self, board=None, view=None, price=None):
-        self.price = price if price is not None else 10
+    def __init__(self, board=None, view=None, price=10):
+        self.price = price
         self.view = view if view is not None else random.choice(string.punctuation)
         self.board = board if board is not None else screen
-        self.row = 0
-        self.col = 0
         self.spawn()
 
     def spawn(self):
@@ -128,45 +128,47 @@ class Board:
     def checkch(self,row,col):
         return chr((self.board.inch(row,col)) & 0xFF)
     
-
 class LevelManager:
 
-    def __init__(self,snakecount, foodcount):
+    def __init__(self,snakecount, foodcount, gameboard, scoreboard):
         self.snakecount = int (snakecount + 1)
         self.foodcount = int (foodcount + 1)
         self.foods = [Food(gameboard) for i in range(self.foodcount)]
         self.snakes = [Snake(self.foods,gameboard,1) for i in range(self.snakecount)]
+        self.gameboard = gameboard
+        self.scoreboard = scoreboard
     
     def check_collision(self):
         for i in range(self.snakecount-1):
             for j in range(self.snakecount-1):
-                if self.snakes[i].body[0] in self.snakes[j].body and self.snakes[i].fill != self.snakes[j].fill:
+                if self.snakes[i].head() in self.snakes[j].body and self.snakes[i].fill != self.snakes[j].fill:
                     self.snakes[i].collision = 1
 
     def catch_food(self):
         for i in range(self.snakecount-1):
             for j in range(self.foodcount-1):
-                if self.snakes[i].body[0][0] == self.foods[j].row and self.snakes[i].body[0][1] == self.foods[j].col:
+                if self.snakes[i].head() == [self.foods[j].row,self.foods[j].col]:
                     self.snakes[i].needgrow = 1
-                    self.snakes[i].score += 10
-                    self.snakes[i].target = None
                     self.foods[j].spawn()
     
-    def gamemove(self, gboard, sboard):
+    def gamemove(self):
         for i in range(self.foodcount-1):
             self.foods[i].draw()
 
         for i in range(self.snakecount-1):
-            self.snakes[i].move()
+            if self.snakes[i].collision == 1:
+                self.snakes[i].death()
+            else:
+                self.snakes[i].move()
             self.check_collision()
             self.catch_food()
-            sboard.drawstr(2+i, 2, "===[ " + self.snakes[i].fill + " => " + str(self.snakes[i].score) + " ]===" )
+            self.scoreboard.drawstr(2+i, 2, "===[ " + self.snakes[i].fill + " => " + str(self.snakes[i].score) + " ]===" )
         
-        sboard.refresh()
+        self.scoreboard.refresh()
 
-        gboard.drawwin()
-        gboard.drawstr(0,35,"WANNA PLAY WITH SNAKES?")
-        gboard.refresh()
+        self.gameboard.drawwin()
+        self.gameboard.drawstr(0,35,"WANNA PLAY WITH SNAKES?")
+        self.gameboard.refresh()
 
                 
 def key_pressed(char):
@@ -198,13 +200,13 @@ scoreboard = Board(20,30,0,93)
 scoreboard.drawwin()
 scoreboard.drawstr(0,9,"SCORE BOARD:")
 
-level = LevelManager(SNAKE_NUMBER, FOOD_NUMBER)
+level = LevelManager(SNAKE_NUMBER, FOOD_NUMBER, gameboard, scoreboard)
 
 while presskey != -1:
 
     presskey = key_pressed(screen.getch())
     
-    level.gamemove(gameboard, scoreboard)
+    level.gamemove()
 
     curses.napms(100)
     
