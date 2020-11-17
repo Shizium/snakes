@@ -35,9 +35,13 @@ class Snake:
             self.board.drawch(self.body[i][0], self.body[i][1], " ")
         self.reset()
 
-    def move(self):
-        row, col = self.head()
+    def update(self):
 
+        if snake.collision == 1:
+            self.death()
+
+        row, col = self.head()
+        
         #Если установлен флаг автоматического управлений движением змейки
         if self.ai == 1:
             #Проверяем где самая ближняя еда по направлению
@@ -131,8 +135,8 @@ class Board:
 class LevelManager:
 
     def __init__(self,snakecount, foodcount, gameboard, scoreboard):
-        self.snakecount = snakecount + 1
-        self.foodcount = foodcount + 1
+        self.snakecount = snakecount
+        self.foodcount = foodcount
         self.foods = [Food(gameboard) for i in range(self.foodcount)]
         self.snakes = [Snake(self.foods,gameboard,1) for i in range(self.snakecount)]
         self.gameboard = gameboard
@@ -142,7 +146,7 @@ class LevelManager:
         for snake1 in self.snakes:
             for snake2 in self.snakes:
                 if snake1.head() in snake2.body and snake1.fill != snake2.fill:
-                    self.snakes[i].collision = 1
+                    snake1.collision = 1
 
     def catch_food(self):
         for snake in self.snakes:
@@ -151,17 +155,14 @@ class LevelManager:
                     snake.needgrow = 1
                     food.spawn()
     
-    def gamemove(self):
+    def update(self):
         for food in self.foods:
             food.draw()
 
         i = 0
 
         for snake in self.snakes:
-            if snake.collision == 1:
-                snake.death()
-            else:
-                snake.move()
+            self.snake.update()
             self.check_collision()
             self.catch_food()
             self.scoreboard.drawstr(2+i, 2, "===[ " + snake.fill + " => " + str(snake.score) + " ]===" )
@@ -182,8 +183,8 @@ def key_pressed(char):
     elif char == ord("d") or char == ord("D") or char == curses.KEY_RIGHT: return 3
 
 #Constant
-SNAKE_NUMBER = 5
-FOOD_NUMBER = 10
+SNAKE_NUMBER = 2
+FOOD_NUMBER = 2
 
 #Init values
 dirdict = {"U":0,"L":1,"D":2,"R":3}
@@ -209,7 +210,7 @@ while presskey != -1:
 
     presskey = key_pressed(screen.getch())
     
-    level.gamemove()
+    level.update()
 
     curses.napms(100)
     
