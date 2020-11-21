@@ -1,6 +1,12 @@
 from abc import ABCMeta, abstractmethod
+import curses
+import random
+import string
+import pygame
+import os
+import constants
 
-class Board(metaclass=ABCMeta):
+class Graphics(metaclass=ABCMeta):
 
     @abstractmethod
     def drawwin(self):
@@ -15,74 +21,217 @@ class Board(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def checkregion(self):
+    def checkcell(self,x,y):
         pass
 
 class Input(metaclass=ABCMeta):
 
     @abstractmethod
-    def key_pressed(self,char)
+    def key_pressed(self):
         pass
 
 class ConsoleInput(Input):
 
-    def key_pressed(self,char)
-        pass
+    def __init__(self, screen):
+        
+        self.screen = screen
+
+    def key_pressed(self):
+        
+        char = self.screen.getch()
+        
+        if char == ord("q"): return -1
+        elif char == ord("w") or char == ord("W") or char == curses.KEY_UP: return 0
+        elif char == ord("a") or char == ord("A") or char == curses.KEY_LEFT: return 1
+        elif char == ord("s") or char == ord("S") or char == curses.KEY_DOWN: return 2
+        elif char == ord("d") or char == ord("D") or char == curses.KEY_RIGHT: return 3
 
 class GraphicsInput(Input):
-    def key_pressed(self,char)
+
+    def __init__(self):
+        pass
+    
+    def key_pressed(self):
+        for i in pygame.event.get():
+            if i.type == pygame.KEYDOWN:
+                if i.key == pygame.K_UP:
+                    return 0
+                elif i.key == pygame.K_DOWN:
+                    return 2
+                elif i.key == pygame.K_LEFT:
+                    return 1
+                elif i.key == pygame.K_RIGHT:
+                    return 3
+                elif i.key == pygame.K_q:
+                    return -1
+
+class TerminalGraphics(Graphics):
+
+    def __init__(self, x, y):
+        self.screen = curses.initscr()
+        curses.start_color()
+        curses.noecho()
+        curses.curs_set(0)
+        self.screen.nodelay(True)
+        self.screen.erase()
+
+    def drawwin(self, x, y, startx=0, starty=0, label=None):
+        win = curses.newwin(y, x, starty, startx)
+        self.redrawwin(win, label)
+        return win
+
+    def redrawwin(self, win, label=None):
+        win.box(curses.A_VERTICAL, curses.A_HORIZONTAL)
+        if label != None:
+            y, x = win.getmaxyx()
+            x = ( (x // 2) - (len(label) // 2) )
+            win.addstr(0, x, label)
+
+    def draw(self, win, x, y, fill):
+        win.addch(y, x, fill)        
+            
+    def drawtext(self, win, x, y, st):
+        win.addstr(y, x, st)
+
+    def refresh(self, win, x=None, y=None):
+        win.refresh()
+        curses.napms(50)
+
+    def checkcell(self,x,y):
+        if chr((self.screen.inch(y,x)) & 0xFF) != " ":
+            return 1
+        else:
+            return 0
+
+class PygameGraphics(Graphics):
+
+    def __init__(self, x, y):
+        self.clock = pygame.time.Clock()
+        self.screen = pygame.display.set_mode((constant.WIN_WIDTH, constant.WIN_HEIGHT))
+        self.font = pygame.font.SysFont('arial', 20)
+        pygame.font.init()
+
+    def drawwin(self):
+        win = pygame.Surface((GAME_WIN_WIDTH,GAME_WIN_HEIGHT))
+
+    def draw(self, row, col, ch=" ", color=1):
         pass
 
+    def refresh(self, win, x, y):
+        self.screen.blit(win, x, y)
 
-class ConsoleBoard(Board):
+    def checkregion(self,x,y):
+        pass
 
-    def __init__(self, x, y):
-        self.board = curses.newwin(0, 0, y, x)
-        self.miny, self.minx = self.board.getbegyx()
-        self.maxy, self.maxx = self.board.getmaxyx()
+class Board:
 
-    def drawwin(self):
-        self.board.box(curses.A_VERTICAL, curses.A_HORIZONTAL)
-
-    def draw(self, row, col ch=" ", color=1):
-        if len(ch) > 1:
-            self.board.addstr(row, col, st)
-        else:
-            self.board.addch(row, col, ch)
-
-    def refresh(self):
-        self.board.refresh()
-
-    def checkregion(self,row,col):
-        return chr((self.board.inch(row,col)) & 0xFF)
-
-class GraphicsBoard(Board):
-
-    def __init__(self, x, y):
-        
+    def __init__(self, painter, x, y, startx=0, starty=0, label=None):
+        self.painter = painter
+        self.winsize = (startx,starty,x,y)
+        self.label = label
+        self.drawwin()
 
     def drawwin(self):
-        
+        self.win = self.painter.drawwin(self.winsize[2],self.winsize[3],
+                                        self.winsize[0],self.winsize[1],self.label)
 
-    def draw(self, row, col ch=" ", color=1):
-        
+    def redrawwin(self):
+        self.painter.redrawwin(self.win,self.label)
+
+    def checkcell(self, x, y):
+        return self.painter.checkcell(x,y)
+
+    def draw(self, x, y, fill=" "):
+        self.painter.draw(self.win, x, y, fill)
+
+    def drawtext(self, x, y, st):
+        self.painter.drawtext(self.win, x, y, st)
 
     def refresh(self):
-        
+        self.redrawwin()
+        self.painter.refresh(self.win, self.winsize[0], self.winsize[1])
 
-    def checkregion(self,row,col):
+class LevelManager:
+
+    def __init__(self, painter="G"):
+        if painter == "G":
+            self.painter = PygameGraphics(constants.WIN_WIDTH, constants.WIN_HEIGHT)
+            self.gameboard = Board(self.painter,
+                                    constants.GAME_WIN_WIDTH,
+                                    constants.GAME_WIN_HEIGHT,
+                                    0,0, constants.GAME_LABEL)
+            self.scoreboard = Board(self.painter,
+                                    constants.SCORE_WIN_WIDTH,
+                                    constants.SCORE_WIN_HEIGHT,
+                                    constants.GAME_WIN_WIDTH,0,
+                                    constants.SCORE_LABEL)
+            self.input = GraphicsInput()
+        elif painter == "T":
+            self.painter = TerminalGraphics(constants.WIN_ROW_COUNT, constants.WIN_COL_COUNT)
+            self.gameboard = Board(self.painter,
+                                    constants.GAME_COL_COUNT,
+                                    constants.GAME_ROW_COUNT,
+                                    0,0, constants.GAME_LABEL)
+            self.scoreboard = Board(self.painter,
+                                    constants.SCORE_COL_COUNT,
+                                    constants.SCORE_ROW_COUNT,
+                                    constants.GAME_COL_COUNT,0,
+                                    constants.SCORE_LABEL)
+            self.input = ConsoleInput(self.painter.screen)
+        self.foods = [Food(self.gameboard) for i in range(constants.FOOD_NUMBER)]
+        self.snakes = [Snake(self.foods,self.gameboard,1) for i in range(constants.SNAKE_NUMBER)]
         
+    def check_collision(self):
+        for snake1 in self.snakes:
+            for snake2 in self.snakes:
+                if snake1.head() in snake2.body and snake1.fill != snake2.fill:
+                    snake1.collision = 1
+
+    def catch_food(self):
+        for snake in self.snakes:
+            for food in self.foods:
+                if snake.head() == [food.y,food.x]:
+                    snake.needgrow = 1
+                    food.spawn()
+    
+    def update(self):
+        
+        for food in self.foods:
+            food.draw()
+        
+        i = 0
+
+        for snake in self.snakes:
+            snake.update()
+            self.check_collision()
+            self.catch_food()
+            self.scoreboard.drawtext(2, 2+i, "===[ " + snake.fill + " => " + str(snake.score) + " ]===" )
+            i += 1
+        
+        self.scoreboard.refresh()
+        self.gameboard.refresh()
+
+    def loop(self):
+        
+        presskey = 0
+
+        while presskey != -1:
+
+            presskey = self.input.key_pressed()
+            
+            self.update()
 
 class Snake:
 
     def __init__(self, foods, board, ai=0, x=None, y=None, direction=None, color=1, size=5, fill=None):
+        dirdict = {"U":0,"L":1,"D":2,"R":3}
         self.size = size
+        self.foods = foods
         self.fill = fill if fill is not None else random.choice(string.ascii_uppercase)
         self.direction = direction if direction is not None  else random.choice(list(dirdict.values()))
         self.color = color
         self.ai = ai
         self.board = board
-        self.foods = foods
         self.collision = 0
         self.needgrow = 0
         self.score = 0
@@ -93,8 +242,8 @@ class Snake:
     
     def reset(self,x=None,y=None):
         self.body = [[0,0] for i in range(self.size)]
-        self.body[0][0] = x if x is not None else random.randint(self.board.minx,self.board.maxx - 1)
-        self.body[0][1] = y if y is not None else random.randint(self.board.miny,self.board.maxy - 1)
+        self.body[0][0] = x if x is not None else random.randint(self.board.winsize[0],self.board.winsize[2] - 1)
+        self.body[0][1] = y if y is not None else random.randint(self.board.winsize[1],self.board.winsize[3] - 1)
         self.collision = 0
         self.needgrow = 0
         self.target = None
@@ -107,7 +256,7 @@ class Snake:
 
     def update(self):
 
-        if snake.collision == 1:
+        if self.collision == 1:
             self.death()
 
         y, x = self.head()
@@ -116,11 +265,11 @@ class Snake:
         if self.ai == 1:
             #Проверяем где самая ближняя еда по направлению
             #Только если у нас нет текущей цели еды, к которой мы встретимся или еду уже съели
-            if (self.target == None) or (self.board.checkch(self.target[0],self.target[1]) not in string.punctuation):
+            if (self.target == None) or (self.board.checkcell(self.target[0],self.target[1])):
                     i = random.randint(0,len(self.foods)-1)
                     self.target = [0,0]
-                    self.target[0] = self.foods[i].row
-                    self.target[1] = self.foods[i].col
+                    self.target[0] = self.foods[i].y
+                    self.target[1] = self.foods[i].x
 
             #Простейший интеллект
             #Если вертикаль не совпадает, то если движется по горизонтали, то меняем направление на движение по вертикали
@@ -137,26 +286,26 @@ class Snake:
         #Совершаем движение на один шаг в выбранном направлении
         if self.direction == 0:
             y += 1
-            if y >= self.board.maxy - 1:
-                y = self.board.miny
+            if y >= self.board.winsize[3] - 1:
+                y = self.board.winsize[1]
         elif self.direction == 2:
             y -= 1
-            if y <= self.board.miny:
-                y = self.board.maxy - 1
+            if y <= self.board.winsize[1]:
+                y = self.board.winsize[3] - 1
         elif self.direction == 1:
             x -= 1
-            if x <= self.board.minx:
-                x = self.board.maxx - 1
+            if x <= self.board.winsize[0]:
+                x = self.board.winsize[2] - 1
         elif self.direction == 3:
             x += 1
-            if x >= self.board.maxx - 1:
-                x = self.board.minx
+            if x >= self.board.winsize[2] - 1:
+                x = self.board.winsize[0]
 
         self.body.insert(0, [y, x])
         self.board.draw(y, x, self.fill)
         if self.needgrow == 0:
             self.body.pop(len(self.body) - 1)
-            self.board.draw(self.body[-1][0], self.body[-1][1], " ")
+            self.board.draw(self.body[-1][0], self.body[-1][1])
         else:
             self.needgrow = 0
             self.score += 10
@@ -172,53 +321,12 @@ class Food:
 
     def spawn(self):
         while True:
-            self.x = random.randint(self.board.minx, self.board.maxx - 1)
-            self.y = random.randint(self.board.miny, self.board.maxy - 1)
-            if self.board.checkch(self.x, self.y) == " ":
+            self.x = random.randint(self.board.winsize[0], self.board.winsize[2] - 1)
+            self.y = random.randint(self.board.winsize[1], self.board.winsize[3] - 1)
+            if self.board.checkcell(self.x, self.y) == 0:
                 break
 
     def draw(self):
         self.board.draw(self.x, self.y, self.view)
 
 
-class LevelManager:
-
-    def __init__(self,snakecount, foodcount, gameboard, scoreboard):
-        self.snakecount = snakecount
-        self.foodcount = foodcount
-        self.foods = [Food(gameboard) for i in range(self.foodcount)]
-        self.snakes = [Snake(self.foods,gameboard,1) for i in range(self.snakecount)]
-        self.gameboard = gameboard
-        self.scoreboard = scoreboard
-   
-    def check_collision(self):
-        for snake1 in self.snakes:
-            for snake2 in self.snakes:
-                if snake1.head() in snake2.body and snake1.fill != snake2.fill:
-                    snake1.collision = 1
-
-    def catch_food(self):
-        for snake in self.snakes:
-            for food in self.foods:
-                if snake.head() == [food.row,food.col]:
-                    snake.needgrow = 1
-                    food.spawn()
-    
-    def update(self):
-        for food in self.foods:
-            food.draw()
-
-        i = 0
-
-        for snake in self.snakes:
-            self.snake.update()
-            self.check_collision()
-            self.catch_food()
-            self.scoreboard.drawstr(2+i, 2, "===[ " + snake.fill + " => " + str(snake.score) + " ]===" )
-            i += 1
-        
-        self.scoreboard.refresh()
-
-        self.gameboard.drawwin()
-        self.gameboard.drawstr(0,35,"WANNA PLAY WITH SNAKES?")
-        self.gameboard.refresh()
