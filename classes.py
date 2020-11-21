@@ -120,20 +120,22 @@ class PygameGraphics(Graphics):
     def refresh(self, win, x, y):
         self.screen.blit(win, x, y)
 
-    def checkregion(self,x,y):
+    def checkcell(self,x,y):
         pass
 
 class Board:
 
     def __init__(self, painter, x, y, startx=0, starty=0, label=None):
         self.painter = painter
-        self.winsize = (startx,starty,x,y)
+        self.x = x
+        self.y = y
+        self.startx = startx
+        self.starty = starty
         self.label = label
         self.drawwin()
 
     def drawwin(self):
-        self.win = self.painter.drawwin(self.winsize[2],self.winsize[3],
-                                        self.winsize[0],self.winsize[1],self.label)
+        self.win = self.painter.drawwin(self.x,self.y,self.startx,self.starty,self.label)
 
     def redrawwin(self):
         self.painter.redrawwin(self.win,self.label)
@@ -149,7 +151,7 @@ class Board:
 
     def refresh(self):
         self.redrawwin()
-        self.painter.refresh(self.win, self.winsize[0], self.winsize[1])
+        self.painter.refresh(self.win, self.startx, self.starty)
 
 class LevelManager:
 
@@ -190,7 +192,7 @@ class LevelManager:
     def catch_food(self):
         for snake in self.snakes:
             for food in self.foods:
-                if snake.head() == [food.y,food.x]:
+                if snake.head() == [food.x,food.y]:
                     snake.needgrow = 1
                     food.spawn()
     
@@ -223,9 +225,8 @@ class LevelManager:
 
 class Snake:
 
-    def __init__(self, foods, board, ai=0, x=None, y=None, direction=None, color=1, size=5, fill=None):
+    def __init__(self, foods, board, ai=0, x=None, y=None, direction=None, color=1, fill=None):
         dirdict = {"U":0,"L":1,"D":2,"R":3}
-        self.size = size
         self.foods = foods
         self.fill = fill if fill is not None else random.choice(string.ascii_uppercase)
         self.direction = direction if direction is not None  else random.choice(list(dirdict.values()))
@@ -241,17 +242,18 @@ class Snake:
         return self.body[0]
     
     def reset(self,x=None,y=None):
+        self.size = random.randint(1,5)
         self.body = [[0,0] for i in range(self.size)]
-        self.body[0][0] = x if x is not None else random.randint(self.board.winsize[0],self.board.winsize[2] - 1)
-        self.body[0][1] = y if y is not None else random.randint(self.board.winsize[1],self.board.winsize[3] - 1)
+        self.body[0][0] = x if x is not None else random.randint(self.board.startx + 1, self.board.x - 1)
+        self.body[0][1] = y if y is not None else random.randint(self.board.starty + 1, self.board.y - 1)
         self.collision = 0
         self.needgrow = 0
         self.target = None
 
     def death(self):
         self.score -= 100
-        for i in range(len(self.body)-1):
-            self.board.draw(self.body[i][0], self.body[i][1], " ")
+        for cell in self.body:
+            self.board.draw(cell[0], cell[1])
         self.reset()
 
     def update(self):
@@ -259,56 +261,56 @@ class Snake:
         if self.collision == 1:
             self.death()
 
-        y, x = self.head()
+        x, y = self.head()
       
         #Если установлен флаг автоматического управлений движением змейки
         if self.ai == 1:
             #Проверяем где самая ближняя еда по направлению
             #Только если у нас нет текущей цели еды, к которой мы встретимся или еду уже съели
-            if (self.target == None) or (self.board.checkcell(self.target[0],self.target[1])):
-                    i = random.randint(0,len(self.foods)-1)
-                    self.target = [0,0]
-                    self.target[0] = self.foods[i].y
-                    self.target[1] = self.foods[i].x
+            if self.target is None: 
+                self.target = random.choice(list(self.foods))
+            elif self.board.checkcell(self.target.x,self.target.y):
+                self.target = random.choice(list(self.foods))
 
             #Простейший интеллект
             #Если вертикаль не совпадает, то если движется по горизонтали, то меняем направление на движение по вертикали
             #в зависимости где ближе: сверху или снизу
-            if y != self.target[0]:
+            if y != self.target.y:
                 if self.direction == 1 or self.direction == 3:
-                    self.direction = 0 if y > self.target[0] else 2
+                    self.direction = 0 if y > self.target.y else 2
             #Если горизонталь не совпадает, то если движется по вертикали, то меняем направление на движение по горизонтали
             #в зависимости где ближе: справа или слева
-            elif x != self.target[1]:
+            elif x != self.target.x:
                 if self.direction == 0 or self.direction == 2:
-                    self.direction = 1 if x > self.target[1] else 3
+                    self.direction = 1 if x > self.target.x else 3
 
         #Совершаем движение на один шаг в выбранном направлении
         if self.direction == 0:
-            y += 1
-            if y >= self.board.winsize[3] - 1:
-                y = self.board.winsize[1]
-        elif self.direction == 2:
             y -= 1
-            if y <= self.board.winsize[1]:
-                y = self.board.winsize[3] - 1
+            if y <= self.board.starty:
+                y = self.board.y - 1
+        elif self.direction == 2:
+            y += 1
+            if y >= self.board.y - 1:
+                y = self.board.starty
         elif self.direction == 1:
             x -= 1
-            if x <= self.board.winsize[0]:
-                x = self.board.winsize[2] - 1
+            if x <= self.board.startx:
+                x = self.board.x - 1
         elif self.direction == 3:
             x += 1
-            if x >= self.board.winsize[2] - 1:
-                x = self.board.winsize[0]
+            if x >= self.board.x - 1:
+                x = self.board.startx
 
-        self.body.insert(0, [y, x])
-        self.board.draw(y, x, self.fill)
+        self.body.insert(0, [x, y])
+        self.board.draw(x, y, self.fill)
         if self.needgrow == 0:
             self.body.pop(len(self.body) - 1)
             self.board.draw(self.body[-1][0], self.body[-1][1])
         else:
             self.needgrow = 0
             self.score += 10
+            self.size += 1
             self.target = None
 
 class Food:
@@ -321,8 +323,8 @@ class Food:
 
     def spawn(self):
         while True:
-            self.x = random.randint(self.board.winsize[0], self.board.winsize[2] - 1)
-            self.y = random.randint(self.board.winsize[1], self.board.winsize[3] - 1)
+            self.x = random.randint(self.board.startx + 1, self.board.x - 1)
+            self.y = random.randint(self.board.starty + 1, self.board.y - 1)
             if self.board.checkcell(self.x, self.y) == 0:
                 break
 
