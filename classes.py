@@ -87,7 +87,7 @@ class TerminalGraphics(Graphics):
             x = ( (x // 2) - (len(label) // 2) )
             win.addstr(0, x, label)
 
-    def draw(self, win, x, y, fill):
+    def draw(self, win, x, y, color, fill):
         win.addch(y, x, fill)        
             
     def drawtext(self, win, x, y, st, color):
@@ -95,7 +95,7 @@ class TerminalGraphics(Graphics):
 
     def refresh(self, win, x=None, y=None):
         win.refresh()
-        curses.napms(50)
+        curses.napms(constants.FPS)
 
     def checkcell(self,x,y):
         if chr((self.screen.inch(y,x)) & 0xFF) != " ":
