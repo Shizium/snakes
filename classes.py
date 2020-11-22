@@ -352,8 +352,8 @@ class Food:
 
     def spawn(self):
         while True:
-            self.x = random.randint(self.board.startx + 1, self.board.x - 1)
-            self.y = random.randint(self.board.starty + 1, self.board.y - 1)
+            self.x = random.randint(self.board.startx + 2, self.board.x - 2)
+            self.y = random.randint(self.board.starty + 2, self.board.y - 2)
             if self.board.checkcell(self.x, self.y) == 0:
                 break
 
