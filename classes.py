@@ -77,10 +77,10 @@ class TerminalGraphics(Graphics):
 
     def drawwin(self, x, y, startx=0, starty=0, label=None):
         win = curses.newwin(y, x, starty, startx)
-        self.redrawwin(win, label)
+        self.redrawwin(win, x, y, label)
         return win
 
-    def redrawwin(self, win, label=None):
+    def redrawwin(self, win, x, y, label=None):
         win.box(curses.A_VERTICAL, curses.A_HORIZONTAL)
         if label != None:
             y, x = win.getmaxyx()
@@ -106,22 +106,57 @@ class TerminalGraphics(Graphics):
 class PygameGraphics(Graphics):
 
     def __init__(self, x, y):
-        self.clock = pygame.time.Clock()
-        self.screen = pygame.display.set_mode((constant.WIN_WIDTH, constant.WIN_HEIGHT))
-        self.font = pygame.font.SysFont('arial', 20)
+        pygame.init()
+        pygame.display.set_caption(constants.GAME_LABEL)
+        self.screen = pygame.display.set_mode((x, y))
         pygame.font.init()
+        self.font = pygame.font.SysFont('courier new', 15)
+        self.clock = pygame.time.Clock()
+        self.scoreboard = []
 
-    def drawwin(self):
-        win = pygame.Surface((GAME_WIN_WIDTH,GAME_WIN_HEIGHT))
+    def drawwin(self, x, y, startx=0, starty=0, label=None):
+        win = pygame.Surface((x*constants.RADIUS,y*constants.RADIUS))
+        #win.fill((random.randint(0,255),random.randint(0,255),random.randint(0,255)))
+        return win
 
-    def draw(self, row, col, ch=" ", color=1):
-        pass
+    def redrawwin(self, win, x, y, label=None):
+        '''
+        for i in range(0,constants.P_GAME_ROW_COUNT*constants.RADIUS,constants.RADIUS):
+            pygame.draw.line(win, (255,255,255), (0,i), (constants.P_GAME_COL_COUNT*constants.RADIUS,i))
+        for i in range(0,constants.P_GAME_COL_COUNT*constants.RADIUS,constants.RADIUS):
+            pygame.draw.line(win, (255,255,255), (i,0), (i,constants.P_GAME_ROW_COUNT*constants.RADIUS))
+        '''
+        x *= constants.RADIUS
+        y *= constants.RADIUS
+        self.screen.blit(win, (x, y))
+
+    def draw(self, win, x, y, fill):
+        color = []
+        if ord(fill) != 32:
+            for i in str(ord(fill)):
+                color.append(int(i)+ord(fill))
+            color.append(color[0]+color[1]) 
+        else:
+            color = [0,0,0]
+        if x == constants.P_GAME_COL_COUNT - 1: x -= 1
+        if y == constants.P_GAME_ROW_COUNT - 1: y -= 1
+        pygame.draw.rect(win, list(color), (x*constants.RADIUS,y*constants.RADIUS,constants.RADIUS,constants.RADIUS))
+
+    def drawtext(self, win, x, y, st):
+        self.scoreboard.append((x,y,st))
 
     def refresh(self, win, x, y):
-        self.screen.blit(win, x, y)
+        x *= constants.RADIUS
+        y *= constants.RADIUS
+        for i in self.scoreboard:
+            score = self.font.render(i[2], False, (255, 255, 255))
+            self.screen.blit(score, (x+i[0], y+i[1]*constants.RADIUS*2))
+        pygame.display.update()
+        self.clock.tick(constants.FPS)
+        self.scoreboard.clear()
 
     def checkcell(self,x,y):
-        pass
+        return 0
 
 class Board:
 
@@ -138,7 +173,7 @@ class Board:
         self.win = self.painter.drawwin(self.x,self.y,self.startx,self.starty,self.label)
 
     def redrawwin(self):
-        self.painter.redrawwin(self.win,self.label)
+        self.painter.redrawwin(self.win,self.startx,self.starty,self.label)
 
     def checkcell(self, x, y):
         return self.painter.checkcell(x,y)
@@ -157,15 +192,15 @@ class LevelManager:
 
     def __init__(self, painter="G"):
         if painter == "G":
-            self.painter = PygameGraphics(constants.WIN_WIDTH, constants.WIN_HEIGHT)
+            self.painter = PygameGraphics(constants.P_WIN_COL_COUNT, constants.P_WIN_ROW_COUNT)
             self.gameboard = Board(self.painter,
-                                    constants.GAME_WIN_WIDTH,
-                                    constants.GAME_WIN_HEIGHT,
+                                    constants.P_GAME_COL_COUNT,
+                                    constants.P_GAME_ROW_COUNT,
                                     0,0, constants.GAME_LABEL)
             self.scoreboard = Board(self.painter,
-                                    constants.SCORE_WIN_WIDTH,
-                                    constants.SCORE_WIN_HEIGHT,
-                                    constants.GAME_WIN_WIDTH,0,
+                                    constants.P_SCORE_COL_COUNT,
+                                    constants.P_SCORE_ROW_COUNT,
+                                    constants.P_GAME_COL_COUNT,0,
                                     constants.SCORE_LABEL)
             self.input = GraphicsInput()
         elif painter == "T":
@@ -209,7 +244,7 @@ class LevelManager:
             self.catch_food()
             self.scoreboard.drawtext(2, 2+i, "===[ " + snake.fill + " => " + str(snake.score) + " ]===" )
             i += 1
-        
+
         self.scoreboard.refresh()
         self.gameboard.refresh()
 
@@ -242,7 +277,7 @@ class Snake:
         return self.body[0]
     
     def reset(self,x=None,y=None):
-        self.size = random.randint(1,5)
+        self.size = random.randint(3,6)
         self.body = [[0,0] for i in range(self.size)]
         self.body[0][0] = x if x is not None else random.randint(self.board.startx + 1, self.board.x - 1)
         self.body[0][1] = y if y is not None else random.randint(self.board.starty + 1, self.board.y - 1)
@@ -292,7 +327,7 @@ class Snake:
         elif self.direction == 2:
             y += 1
             if y >= self.board.y - 1:
-                y = self.board.starty
+                y = self.board.starty + 1
         elif self.direction == 1:
             x -= 1
             if x <= self.board.startx:
@@ -300,13 +335,13 @@ class Snake:
         elif self.direction == 3:
             x += 1
             if x >= self.board.x - 1:
-                x = self.board.startx
+                x = self.board.startx + 1
 
         self.body.insert(0, [x, y])
         self.board.draw(x, y, self.fill)
         if self.needgrow == 0:
-            self.body.pop(len(self.body) - 1)
             self.board.draw(self.body[-1][0], self.body[-1][1])
+            self.body.pop(len(self.body) - 1)
         else:
             self.needgrow = 0
             self.score += 10

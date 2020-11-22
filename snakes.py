@@ -1,6 +1,6 @@
 """Snake game."""
 import classes
 
-level = classes.LevelManager("T")
+level = classes.LevelManager("G")
 
 level.loop()
