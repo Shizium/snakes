@@ -90,7 +90,7 @@ class TerminalGraphics(Graphics):
     def draw(self, win, x, y, fill):
         win.addch(y, x, fill)        
             
-    def drawtext(self, win, x, y, st):
+    def drawtext(self, win, x, y, st, color):
         win.addstr(y, x, st)
 
     def refresh(self, win, x=None, y=None):
@@ -130,26 +130,19 @@ class PygameGraphics(Graphics):
         y *= constants.RADIUS
         self.screen.blit(win, (x, y))
 
-    def draw(self, win, x, y, fill):
-        color = []
-        if ord(fill) != 32:
-            for i in str(ord(fill)):
-                color.append(int(i)+ord(fill))
-            color.append(color[0]+color[1]) 
-        else:
-            color = [0,0,0]
+    def draw(self, win, x, y, color, fill):
         if x == constants.P_GAME_COL_COUNT - 1: x -= 1
         if y == constants.P_GAME_ROW_COUNT - 1: y -= 1
         pygame.draw.rect(win, list(color), (x*constants.RADIUS,y*constants.RADIUS,constants.RADIUS,constants.RADIUS))
 
-    def drawtext(self, win, x, y, st):
-        self.scoreboard.append((x,y,st))
+    def drawtext(self, win, x, y, st, color):
+        self.scoreboard.append((x,y,st,color))
 
     def refresh(self, win, x, y):
         x *= constants.RADIUS
         y *= constants.RADIUS
         for i in self.scoreboard:
-            score = self.font.render(i[2], False, (255, 255, 255))
+            score = self.font.render(i[2], False, i[3])
             self.screen.blit(score, (x+i[0], y+i[1]*constants.RADIUS*2))
         pygame.display.update()
         self.clock.tick(constants.FPS)
@@ -178,11 +171,11 @@ class Board:
     def checkcell(self, x, y):
         return self.painter.checkcell(x,y)
 
-    def draw(self, x, y, fill=" "):
-        self.painter.draw(self.win, x, y, fill)
+    def draw(self, x, y, color=[0,0,0], fill=" "):
+        self.painter.draw(self.win, x, y, color, fill)
 
-    def drawtext(self, x, y, st):
-        self.painter.drawtext(self.win, x, y, st)
+    def drawtext(self, x, y, st, color):
+        self.painter.drawtext(self.win, x, y, st, color)
 
     def refresh(self):
         self.redrawwin()
@@ -242,7 +235,7 @@ class LevelManager:
             snake.update()
             self.check_collision()
             self.catch_food()
-            self.scoreboard.drawtext(2, 2+i, "===[ " + snake.fill + " => " + str(snake.score) + " ]===" )
+            self.scoreboard.drawtext(2, 2+i, "===[ " + snake.fill + " => " + str(snake.score) + " ]===", snake.color)
             i += 1
 
         self.scoreboard.refresh()
@@ -260,14 +253,14 @@ class LevelManager:
 
 class Snake:
 
-    def __init__(self, foods, board, ai=0, x=None, y=None, direction=None, color=1, fill=None):
+    def __init__(self, foods, board, ai=0, x=None, y=None):
         dirdict = {"U":0,"L":1,"D":2,"R":3}
         self.foods = foods
-        self.fill = fill if fill is not None else random.choice(string.ascii_uppercase)
-        self.direction = direction if direction is not None  else random.choice(list(dirdict.values()))
-        self.color = color
+        self.fill = random.choice(string.ascii_uppercase)
+        self.direction = random.choice(list(dirdict.values()))
         self.ai = ai
         self.board = board
+        self.color = [random.randint(0,255),random.randint(0,255),random.randint(0,255)]
         self.collision = 0
         self.needgrow = 0
         self.score = 0
@@ -338,7 +331,7 @@ class Snake:
                 x = self.board.startx + 1
 
         self.body.insert(0, [x, y])
-        self.board.draw(x, y, self.fill)
+        self.board.draw(x, y, self.color, self.fill)
         if self.needgrow == 0:
             self.board.draw(self.body[-1][0], self.body[-1][1])
             self.body.pop(len(self.body) - 1)
@@ -354,6 +347,7 @@ class Food:
         self.price = price
         self.view = view if view is not None else random.choice(string.punctuation)
         self.board = board
+        self.color = [random.randint(0,255),random.randint(0,255),random.randint(0,255)]
         self.spawn()
 
     def spawn(self):
@@ -364,6 +358,6 @@ class Food:
                 break
 
     def draw(self):
-        self.board.draw(self.x, self.y, self.view)
+        self.board.draw(self.x, self.y, self.color, self.view)
 
 
